@@ -1,4 +1,7 @@
-#include <gfxfont.h>
+// DRA818v Controller
+//
+// 14-February-2018
+// Bruce MacKinnon KC1FSZ
 
 #include <SPI.h>
 #include <Wire.h>
@@ -24,8 +27,11 @@ DebouncedSwitch db4(3L);
 RotaryEncoder renc(&db2,&db3);
 ClickDetector cd4(&db4);
 
-unsigned long vfoFreq = 146640000;
+const unsigned long vfoSteps[] = { 10000, 100000, 1000000, 10000000 };
 
+unsigned long vfoFreq = 146640000;
+unsigned long vfoStepIndex = 0;
+unsigned long ctcs = 1;
 int mode = 0;
 int volume = 5;
 
@@ -41,6 +47,24 @@ unsigned long getH(unsigned long f) {
   return f % 1000L;
 }
 
+void updateRadioGroup() {
+  Serial.print("AT+DMOSETGROUP=");
+  Serial.print(vfoFreq);
+  Serial.print(",");
+  Serial.print(vfoFreq);
+  Serial.print(",");
+  Serial.print(ctcs);
+  Serial.write(13);
+  Serial.write(10);
+}
+
+void updateRadioVolume() {
+  Serial.print("AT+DMOSETVOLUME=");
+  Serial.print(volume);
+  Serial.write(13);
+  Serial.write(10);
+}
+
 void updateDisplay() {
   
   int rowHeight = 16;
@@ -48,42 +72,42 @@ void updateDisplay() {
   int y = 17;
 
   // Clear area
-  display.fillRect(startX,y,display.width() - startX,rowHeight,0);
-  
-  display.setTextSize(2);
+  display.fillRect(0,y,display.width(),rowHeight * 2,0);
   display.setTextColor(WHITE);
 
   // Display frequency setting
   if (mode == 0) {  
     
-    // Render frequency
     unsigned long f = 0;
     f = vfoFreq;
     char buf[8];
 
     // Number
     display.setCursor(startX,y);
-    display.print(getMH(f)); 
-  
+    display.setTextSize(2);
+    display.print(getMH(f));   
     display.setCursor(startX + 50,y);
     sprintf(buf,"%03lu",getKH(f));
-    display.print(buf);  
+    display.print(buf);
+
+    y += 20;
+    display.setCursor(0,y);  
+    display.setTextSize(0);
+    display.print(vfoSteps[vfoStepIndex]);
   }
-  // Display volume setting
+  
   else if (mode == 1) {
+    // Display volume setting
     display.setCursor(startX,y);
     display.print(volume); 
   }
 }
-
 
 void setup() {
   
   Serial.begin(9600);
   delay(500);
   
-  Serial.println("KC1FSZ VHF");
-
   pinMode(PIN_D2,INPUT_PULLUP);
   pinMode(PIN_D3,INPUT_PULLUP);
   pinMode(PIN_D4,INPUT_PULLUP);
@@ -116,17 +140,30 @@ void loop() {
   
   boolean displayDirty = false;
 
-  if (clickDuration > 0) {
+  // Long click changes the mode
+  if (clickDuration > 500) {    
     mode++;
     if (mode > 1) {
       mode = 0;
+    }
+    displayDirty = true;
+  } 
+  // Short click change the step size
+  else if (clickDuration > 0) {
+    if (mode == 0) {
+      vfoStepIndex++;
+      if (vfoStepIndex > 3) {
+        vfoStepIndex = 0;    
+      }
+      displayDirty = true;
     }
   } 
   else if (mult != 0) {
     // Frequency
     if (mode == 0) {
-      long step = mult * 10000;
+      long step = mult * vfoSteps[vfoStepIndex];
       vfoFreq += step;
+      updateRadioGroup();
     }
     // Volume 
     else if (mode == 1) {
@@ -139,7 +176,9 @@ void loop() {
           volume--;
         }
       }
-    }
+      updateRadioVolume();
+   }
+    
     displayDirty = true;
   }
    
