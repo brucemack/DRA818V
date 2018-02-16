@@ -29,11 +29,14 @@ ClickDetector cd4(&db4);
 
 const unsigned long vfoSteps[] = { 10000, 100000, 1000000, 10000000 };
 
+int mode = 0;
+
 unsigned long vfoFreq = 146640000;
 unsigned long vfoStepIndex = 0;
-unsigned long ctcs = 1;
-int mode = 0;
+String transmitCTCSS = "0018";
+String receiveCTCSS = "0000";
 int volume = 5;
+int squelch = 5;
 
 unsigned long getMH(unsigned long f) {
   return f / 1000000L;
@@ -48,12 +51,27 @@ unsigned long getH(unsigned long f) {
 }
 
 void updateRadioGroup() {
-  Serial.print("AT+DMOSETGROUP=");
-  Serial.print(vfoFreq);
+
+  //AT+DMOSETGROUP=0,152.1250,152.1250,0012,4,0003<
+  Serial.print("AT+DMOSETGROUP=0,");
+  Serial.print(getMH(vfoFreq));
+  Serial.print(".");
+  char buf[5];
+  sprintf(buf,"%03lu",getKH(vfoFreq));
+  Serial.print(buf);
+  Serial.print("0");
   Serial.print(",");
-  Serial.print(vfoFreq);
+  Serial.print(getMH(vfoFreq));
+  Serial.print(".");
+  sprintf(buf,"%03lu",getKH(vfoFreq));
+  Serial.print(buf);
+  Serial.print("0");
   Serial.print(",");
-  Serial.print(ctcs);
+  Serial.print(transmitCTCSS);
+  Serial.print(",");
+  Serial.print(squelch);
+  Serial.print(",");
+  Serial.print(receiveCTCSS);
   Serial.write(13);
   Serial.write(10);
 }
@@ -72,7 +90,25 @@ void updateDisplay() {
   int y = 17;
 
   // Clear area
-  display.fillRect(0,y,display.width(),rowHeight * 2,0);
+  display.fillRect(0,0,display.width(),display.height(),0);
+
+  // Top
+  display.setCursor(0,0);
+  display.setTextSize(0);
+  display.setTextColor(WHITE);
+  display.print("KC1FSZ VHF");
+  display.print("   ");
+
+  if (mode == 0) {
+    display.print("VFO");
+  } else if (mode == 1) {
+    display.print("VOL");
+  } else if (mode == 2) {
+    display.print("SQL");
+  }
+
+  display.drawLine(0,15,display.width(),15,WHITE);
+  
   display.setTextColor(WHITE);
 
   // Display frequency setting
@@ -95,11 +131,17 @@ void updateDisplay() {
     display.setTextSize(0);
     display.print(vfoSteps[vfoStepIndex]);
   }
-  
   else if (mode == 1) {
     // Display volume setting
     display.setCursor(startX,y);
+    display.setTextSize(2);
     display.print(volume); 
+  }
+  else if (mode == 2) {
+    // Display squelch setting
+    display.setCursor(startX,y);
+    display.setTextSize(2);
+    display.print(squelch); 
   }
 }
 
@@ -121,8 +163,14 @@ void setup() {
   display.println("KC1FSZ VHF");
   display.drawLine(0,15,display.width(),15,WHITE);
 
-    // Initial display render
+  // Initial display render
   updateDisplay();
+  // Initial radio configuration
+  Serial.print("AT+DMOCONNECT");
+  Serial.write(13);
+  Serial.write(10);
+  updateRadioVolume();
+  updateRadioGroup();
 
   display.display();
 }
@@ -143,7 +191,7 @@ void loop() {
   // Long click changes the mode
   if (clickDuration > 500) {    
     mode++;
-    if (mode > 1) {
+    if (mode > 2) {
       mode = 0;
     }
     displayDirty = true;
@@ -172,12 +220,25 @@ void loop() {
           volume++;
         }
       } else if (mult < 0) {
-        if (volume > 0) {
+        if (volume > 1) {
           volume--;
         }
       }
       updateRadioVolume();
-   }
+    }
+    // Squelch
+    else if (mode == 2) {
+      if (mult > 0) {
+        if (squelch < 8) {
+          squelch++;
+        }
+      } else if (mult < 0) {
+        if (squelch > 0) {
+          squelch--;
+        }
+      }
+      updateRadioGroup();
+    }
     
     displayDirty = true;
   }
