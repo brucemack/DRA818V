@@ -1,4 +1,4 @@
-// DRA818v Controller
+// Controller for a 2m radio based on the DRA818v
 //
 // 14-February-2018
 // Bruce MacKinnon KC1FSZ
@@ -27,14 +27,60 @@ DebouncedSwitch db4(3L);
 RotaryEncoder renc(&db2,&db3);
 ClickDetector cd4(&db4);
 
-const unsigned long vfoSteps[] = { 10000, 100000, 1000000, 10000000 };
+#define VFO_STEP_COUNT 5
+const unsigned long vfoSteps[] = { 1000, 10000, 100000, 1000000, 10000000 };
+unsigned long vfoStepIndex = 1;
 
+#define MODE_COUNT 4
+const char* modeLabels[] = { "VFO", "VOL", "SQL", "CTCSS" };
 int mode = 0;
 
-unsigned long vfoFreq = 146640000;
-unsigned long vfoStepIndex = 0;
-String transmitCTCSS = "0018";
-String receiveCTCSS = "0000";
+#define CTCSS_COUNT 38
+int ctcssIndex = 0;
+const String receiveCTCSS = "0000";
+// CTCSS tones in HZ * 10
+const int ctcssTones[] = {
+  670,
+  719,
+  744,
+  770,
+  797,
+  825,
+  854,
+  885,
+  915,
+  948,
+  974,
+  1000,
+  1035,
+  1072,
+  1109,
+  1148,
+  1188,
+  1230,
+  1273,
+  1318,
+  1365,
+  1413,
+  1462,
+  1514,
+  1567,
+  1622,
+  1679,
+  1738,
+  1799,
+  1862,
+  1928,
+  2035,
+  2107,
+  2181,
+  2257,
+  2336,
+  2418,
+  2503  
+};
+
+unsigned long vfoFreq = 162475000;
 int volume = 5;
 int squelch = 5;
 
@@ -51,36 +97,37 @@ unsigned long getH(unsigned long f) {
 }
 
 void updateRadioGroup() {
-
-  //AT+DMOSETGROUP=0,152.1250,152.1250,0012,4,0003<
-  Serial.print("AT+DMOSETGROUP=0,");
-  Serial.print(getMH(vfoFreq));
-  Serial.print(".");
+  // Here is what the command looks like:
+  //AT+DMOSETGROUP=0,152.1250,152.1250,0012,4,0003<CR><LF>
+  Serial1.print("AT+DMOSETGROUP=0,");
+  Serial1.print(getMH(vfoFreq));
+  Serial1.print(".");
   char buf[5];
   sprintf(buf,"%03lu",getKH(vfoFreq));
-  Serial.print(buf);
-  Serial.print("0");
-  Serial.print(",");
-  Serial.print(getMH(vfoFreq));
-  Serial.print(".");
+  Serial1.print(buf);
+  Serial1.print("0");
+  Serial1.print(",");
+  Serial1.print(getMH(vfoFreq));
+  Serial1.print(".");
   sprintf(buf,"%03lu",getKH(vfoFreq));
-  Serial.print(buf);
-  Serial.print("0");
-  Serial.print(",");
-  Serial.print(transmitCTCSS);
-  Serial.print(",");
-  Serial.print(squelch);
-  Serial.print(",");
-  Serial.print(receiveCTCSS);
-  Serial.write(13);
-  Serial.write(10);
+  Serial1.print(buf);
+  Serial1.print("0");
+  Serial1.print(",");
+  sprintf(buf,"%04d",ctcssIndex + 1);
+  Serial1.print(buf);
+  Serial1.print(",");
+  Serial1.print(squelch);
+  Serial1.print(",");
+  Serial1.print(receiveCTCSS);
+  Serial1.write(13);
+  Serial1.write(10);
 }
 
 void updateRadioVolume() {
-  Serial.print("AT+DMOSETVOLUME=");
-  Serial.print(volume);
-  Serial.write(13);
-  Serial.write(10);
+  Serial1.print("AT+DMOSETVOLUME=");
+  Serial1.print(volume);
+  Serial1.write(13);
+  Serial1.write(10);
 }
 
 void updateDisplay() {
@@ -89,65 +136,56 @@ void updateDisplay() {
   int startX = 10;
   int y = 17;
 
-  // Clear area
-  display.fillRect(0,0,display.width(),display.height(),0);
-
-  // Top
+  // Top area
   display.setCursor(0,0);
   display.setTextSize(0);
   display.setTextColor(WHITE);
   display.print("KC1FSZ VHF");
-  display.print("   ");
-
-  if (mode == 0) {
-    display.print("VFO");
-  } else if (mode == 1) {
-    display.print("VOL");
-  } else if (mode == 2) {
-    display.print("SQL");
-  }
-
+  display.print("  ");
+  display.print(modeLabels[mode]);
   display.drawLine(0,15,display.width(),15,WHITE);
-  
+
   display.setTextColor(WHITE);
 
   // Display frequency setting
   if (mode == 0) {  
-    
-    unsigned long f = 0;
-    f = vfoFreq;
-    char buf[8];
-
-    // Number
+    // Frequency
     display.setCursor(startX,y);
     display.setTextSize(2);
-    display.print(getMH(f));   
+    display.print(getMH(vfoFreq));   
     display.setCursor(startX + 50,y);
-    sprintf(buf,"%03lu",getKH(f));
+    char buf[8];
+    sprintf(buf,"%03lu",getKH(vfoFreq));
     display.print(buf);
-
+    // Step
     y += 20;
     display.setCursor(0,y);  
     display.setTextSize(0);
     display.print(vfoSteps[vfoStepIndex]);
   }
+  // Display volume setting
   else if (mode == 1) {
-    // Display volume setting
     display.setCursor(startX,y);
     display.setTextSize(2);
     display.print(volume); 
   }
+  // Display squelch setting
   else if (mode == 2) {
-    // Display squelch setting
     display.setCursor(startX,y);
     display.setTextSize(2);
-    display.print(squelch); 
+    display.print(squelch);
+  }
+  // CTCSS 
+  else if (mode == 3) {
+    display.setCursor(startX,y);
+    display.setTextSize(2);
+    display.print(ctcssTones[ctcssIndex]); 
   }
 }
 
 void setup() {
   
-  Serial.begin(9600);
+  Serial1.begin(9600);
   delay(500);
   
   pinMode(PIN_D2,INPUT_PULLUP);
@@ -155,20 +193,13 @@ void setup() {
   pinMode(PIN_D4,INPUT_PULLUP);
 
   display.begin(SSD1306_SWITCHCAPVCC,SSD1306_I2C_ADDRESS);
-
-  display.clearDisplay();
-
-  display.setTextSize(0);
-  display.setTextColor(WHITE);
-  display.println("KC1FSZ VHF");
-  display.drawLine(0,15,display.width(),15,WHITE);
-
+  
   // Initial display render
   updateDisplay();
   // Initial radio configuration
-  Serial.print("AT+DMOCONNECT");
-  Serial.write(13);
-  Serial.write(10);
+  Serial1.print("AT+DMOCONNECT");
+  Serial1.write(13);
+  Serial1.write(10);
   updateRadioVolume();
   updateRadioGroup();
 
@@ -185,13 +216,12 @@ void loop() {
   
   long mult = renc.getIncrement();
   long clickDuration = cd4.getClickDuration();
-  
   boolean displayDirty = false;
 
   // Long click changes the mode
   if (clickDuration > 500) {    
     mode++;
-    if (mode > 2) {
+    if (mode == MODE_COUNT) {
       mode = 0;
     }
     displayDirty = true;
@@ -200,7 +230,7 @@ void loop() {
   else if (clickDuration > 0) {
     if (mode == 0) {
       vfoStepIndex++;
-      if (vfoStepIndex > 3) {
+      if (vfoStepIndex == VFO_STEP_COUNT) {
         vfoStepIndex = 0;    
       }
       displayDirty = true;
@@ -209,8 +239,7 @@ void loop() {
   else if (mult != 0) {
     // Frequency
     if (mode == 0) {
-      long step = mult * vfoSteps[vfoStepIndex];
-      vfoFreq += step;
+      vfoFreq += (mult * vfoSteps[vfoStepIndex]);
       updateRadioGroup();
     }
     // Volume 
@@ -218,32 +247,49 @@ void loop() {
       if (mult > 0) {
         if (volume < 8) {
           volume++;
+          updateRadioVolume();
         }
       } else if (mult < 0) {
         if (volume > 1) {
           volume--;
+          updateRadioVolume();
         }
       }
-      updateRadioVolume();
     }
     // Squelch
     else if (mode == 2) {
       if (mult > 0) {
         if (squelch < 8) {
           squelch++;
+          updateRadioGroup();
         }
       } else if (mult < 0) {
         if (squelch > 0) {
           squelch--;
+          updateRadioGroup();
         }
       }
-      updateRadioGroup();
+    }
+    // CTCSS
+    else if (mode == 3) {
+      if (mult > 0) {
+        if (ctcssIndex < CTCSS_COUNT - 1) {
+          ctcssIndex++;
+          updateRadioGroup();
+        }
+      } else if (mult < 0) {
+        if (ctcssIndex > 0) {
+          ctcssIndex--;
+          updateRadioGroup();
+        }
+      }
     }
     
     displayDirty = true;
   }
    
   if (displayDirty) {
+    display.clearDisplay();
     updateDisplay();
     display.display();
   } 
