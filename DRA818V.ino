@@ -1,6 +1,6 @@
 // Controller for a 2m radio based on the DRA818v
 //
-// 14-February-2018
+// 22-February-2018
 // Bruce MacKinnon KC1FSZ
 
 #include <SPI.h>
@@ -99,35 +99,35 @@ unsigned long getH(unsigned long f) {
 void updateRadioGroup() {
   // Here is what the command looks like:
   //AT+DMOSETGROUP=0,152.1250,152.1250,0012,4,0003<CR><LF>
-  Serial.print("AT+DMOSETGROUP=0,");
-  Serial.print(getMH(vfoFreq));
-  Serial.print(".");
+  Serial1.print("AT+DMOSETGROUP=0,");
+  Serial1.print(getMH(vfoFreq));
+  Serial1.print(".");
   char buf[5];
   sprintf(buf,"%03lu",getKH(vfoFreq));
-  Serial.print(buf);
-  Serial.print("0");
-  Serial.print(",");
-  Serial.print(getMH(vfoFreq));
-  Serial.print(".");
+  Serial1.print(buf);
+  Serial1.print("0");
+  Serial1.print(",");
+  Serial1.print(getMH(vfoFreq));
+  Serial1.print(".");
   sprintf(buf,"%03lu",getKH(vfoFreq));
-  Serial.print(buf);
-  Serial.print("0");
-  Serial.print(",");
+  Serial1.print(buf);
+  Serial1.print("0");
+  Serial1.print(",");
   sprintf(buf,"%04d",ctcssIndex + 1);
-  Serial.print(buf);
-  Serial.print(",");
-  Serial.print(squelch);
-  Serial.print(",");
-  Serial.print(receiveCTCSS);
-  Serial.write(13);
-  Serial.write(10);
+  Serial1.print(buf);
+  Serial1.print(",");
+  Serial1.print(squelch);
+  Serial1.print(",");
+  Serial1.print(receiveCTCSS);
+  Serial1.write(13);
+  Serial1.write(10);
 }
 
 void updateRadioVolume() {
-  Serial.print("AT+DMOSETVOLUME=");
-  Serial.print(volume);
-  Serial.write(13);
-  Serial.write(10);
+  Serial1.print("AT+DMOSETVOLUME=");
+  Serial1.print(volume);
+  Serial1.write(13);
+  Serial1.write(10);
 }
 
 void updateDisplay() {
@@ -190,7 +190,7 @@ void updateDisplay() {
 
 void setup() {
   
-  Serial.begin(9600);
+  Serial1.begin(9600);
   delay(500);
   
   pinMode(PIN_D2,INPUT_PULLUP);
@@ -202,9 +202,9 @@ void setup() {
   // Initial display render
   updateDisplay();
   // Initial radio configuration
-  Serial.print("AT+DMOCONNECT");
-  Serial.write(13);
-  Serial.write(10);
+  Serial1.print("AT+DMOCONNECT");
+  Serial1.write(13);
+  Serial1.write(10);
   updateRadioVolume();
   updateRadioGroup();
 
