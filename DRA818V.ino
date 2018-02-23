@@ -36,7 +36,7 @@ const char* modeLabels[] = { "VFO", "VOL", "SQL", "CTCSS" };
 int mode = 0;
 
 #define CTCSS_COUNT 38
-int ctcssIndex = 0;
+int ctcssIndex = 17;
 const String receiveCTCSS = "0000";
 // CTCSS tones in HZ * 10
 const int ctcssTones[] = {
@@ -80,7 +80,7 @@ const int ctcssTones[] = {
   2503  
 };
 
-unsigned long vfoFreq = 162475000;
+unsigned long vfoFreq = 147030000;
 int volume = 5;
 int squelch = 5;
 
@@ -99,35 +99,35 @@ unsigned long getH(unsigned long f) {
 void updateRadioGroup() {
   // Here is what the command looks like:
   //AT+DMOSETGROUP=0,152.1250,152.1250,0012,4,0003<CR><LF>
-  Serial1.print("AT+DMOSETGROUP=0,");
-  Serial1.print(getMH(vfoFreq));
-  Serial1.print(".");
+  Serial.print("AT+DMOSETGROUP=0,");
+  Serial.print(getMH(vfoFreq));
+  Serial.print(".");
   char buf[5];
   sprintf(buf,"%03lu",getKH(vfoFreq));
-  Serial1.print(buf);
-  Serial1.print("0");
-  Serial1.print(",");
-  Serial1.print(getMH(vfoFreq));
-  Serial1.print(".");
+  Serial.print(buf);
+  Serial.print("0");
+  Serial.print(",");
+  Serial.print(getMH(vfoFreq));
+  Serial.print(".");
   sprintf(buf,"%03lu",getKH(vfoFreq));
-  Serial1.print(buf);
-  Serial1.print("0");
-  Serial1.print(",");
+  Serial.print(buf);
+  Serial.print("0");
+  Serial.print(",");
   sprintf(buf,"%04d",ctcssIndex + 1);
-  Serial1.print(buf);
-  Serial1.print(",");
-  Serial1.print(squelch);
-  Serial1.print(",");
-  Serial1.print(receiveCTCSS);
-  Serial1.write(13);
-  Serial1.write(10);
+  Serial.print(buf);
+  Serial.print(",");
+  Serial.print(squelch);
+  Serial.print(",");
+  Serial.print(receiveCTCSS);
+  Serial.write(13);
+  Serial.write(10);
 }
 
 void updateRadioVolume() {
-  Serial1.print("AT+DMOSETVOLUME=");
-  Serial1.print(volume);
-  Serial1.write(13);
-  Serial1.write(10);
+  Serial.print("AT+DMOSETVOLUME=");
+  Serial.print(volume);
+  Serial.write(13);
+  Serial.write(10);
 }
 
 void updateDisplay() {
@@ -180,12 +180,17 @@ void updateDisplay() {
     display.setCursor(startX,y);
     display.setTextSize(2);
     display.print(ctcssTones[ctcssIndex]); 
+    // Step
+    y += 20;
+    display.setCursor(0,y);  
+    display.setTextSize(0);
+    display.print(ctcssIndex + 1);
   }
 }
 
 void setup() {
   
-  Serial1.begin(9600);
+  Serial.begin(9600);
   delay(500);
   
   pinMode(PIN_D2,INPUT_PULLUP);
@@ -197,12 +202,14 @@ void setup() {
   // Initial display render
   updateDisplay();
   // Initial radio configuration
-  Serial1.print("AT+DMOCONNECT");
-  Serial1.write(13);
-  Serial1.write(10);
+  Serial.print("AT+DMOCONNECT");
+  Serial.write(13);
+  Serial.write(10);
   updateRadioVolume();
   updateRadioGroup();
 
+  display.clearDisplay();
+  updateDisplay();
   display.display();
 }
 
