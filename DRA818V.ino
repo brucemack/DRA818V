@@ -31,8 +31,8 @@ ClickDetector cd4(&db4);
 const unsigned long vfoSteps[] = { 1000, 10000, 100000, 1000000, 10000000 };
 unsigned long vfoStepIndex = 1;
 
-#define MODE_COUNT 4
-const char* modeLabels[] = { "VFO", "VOL", "SQL", "CTCSS" };
+#define MODE_COUNT 5
+const char* modeLabels[] = { "VFO", "VOL", "SQL", "CTCSS", "SHIFT" };
 int mode = 0;
 
 #define CTCSS_COUNT 38
@@ -84,6 +84,11 @@ unsigned long vfoFreq = 147030000;
 int volume = 5;
 int squelch = 5;
 
+// This can be -1, 0, or 1 
+long shift = 1;
+// We are assuming that the shift on 2m is 0.6 MHz
+long offset = 600000;
+
 unsigned long getMH(unsigned long f) {
   return f / 1000000L;
 }
@@ -97,19 +102,22 @@ unsigned long getH(unsigned long f) {
 }
 
 void updateRadioGroup() {
+  unsigned long rxFreq = vfoFreq;
+  unsigned long txFreq = vfoFreq + (shift * offset);
+  char buf[5];
   // Here is what the command looks like:
   //AT+DMOSETGROUP=0,152.1250,152.1250,0012,4,0003<CR><LF>
+
   Serial1.print("AT+DMOSETGROUP=0,");
-  Serial1.print(getMH(vfoFreq));
+  Serial1.print(getMH(txFreq));
   Serial1.print(".");
-  char buf[5];
-  sprintf(buf,"%03lu",getKH(vfoFreq));
+  sprintf(buf,"%03lu",getKH(txFreq));
   Serial1.print(buf);
   Serial1.print("0");
   Serial1.print(",");
-  Serial1.print(getMH(vfoFreq));
+  Serial1.print(getMH(rxFreq));
   Serial1.print(".");
-  sprintf(buf,"%03lu",getKH(vfoFreq));
+  sprintf(buf,"%03lu",getKH(rxFreq));
   Serial1.print(buf);
   Serial1.print("0");
   Serial1.print(",");
@@ -132,7 +140,6 @@ void updateRadioVolume() {
 
 void updateDisplay() {
   
-  int rowHeight = 16;
   int startX = 10;
   int y = 17;
 
@@ -140,8 +147,8 @@ void updateDisplay() {
   display.setCursor(0,0);
   display.setTextSize(0);
   display.setTextColor(WHITE);
-  display.print("KC1FSZ VHF");
-  display.print("  ");
+  display.print("KC1FSZ PB-V1");
+  display.print(" ");
   display.print(modeLabels[mode]);
   display.drawLine(0,15,display.width(),15,WHITE);
 
@@ -185,6 +192,18 @@ void updateDisplay() {
     display.setCursor(0,y);  
     display.setTextSize(0);
     display.print(ctcssIndex + 1);
+  }
+  // SHIFT 
+  else if (mode == 4) {
+    display.setCursor(startX,y);
+    display.setTextSize(2);
+    if (shift == 1) {
+      display.print("+REP");
+    } else if (shift == -1) {
+      display.print("-REP");
+    } else {
+      display.print("Simplex"); 
+    }
   }
 }
 
@@ -289,6 +308,22 @@ void loop() {
           ctcssIndex--;
           updateRadioGroup();
         }
+      }
+    }
+    // SHIFT
+    else if (mode == 4) {
+      if (mult > 0) {
+        shift++;
+        if (shift > 1) {
+          shift = -1;
+        }
+        updateRadioGroup();
+      } else if (mult < 0) {
+        shift--;
+        if (shift < -1) {
+          shift = 1;
+        }
+        updateRadioGroup();
       }
     }
     
